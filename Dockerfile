@@ -1,12 +1,21 @@
-FROM alpine:latest
+FROM golang:alpine as build
 
 ENV GEOIPUPDATE_VERSION 4.1.5
 
-RUN wget https://github.com/maxmind/geoipupdate/releases/download/v${GEOIPUPDATE_VERSION}/geoipupdate_${GEOIPUPDATE_VERSION}_linux_amd64.tar.gz -O geoupdate.tar.gz \
-&& GEO_DIR=$(tar -tf geoupdate.tar.gz | head -1 | cut -f1 -d /) \
-&& tar -xf geoupdate.tar.gz \
-&& mv ${GEO_DIR}/geoipupdate /usr/local/bin/geoipupdate \
-&& mkdir -p /usr/local/etc \
-&& rm -vrf ${GEO_DIR}
+RUN apk add --update curl git
+RUN git clone  --branch v${GEOIPUPDATE_VERSION} --depth 1 https://github.com/maxmind/geoipupdate.git /tmp/build
 
-CMD ["geoipupdate", "-v"]
+WORKDIR /tmp/build/cmd/geoipupdate
+RUN go build
+
+FROM alpine:latest
+RUN apk add --update ca-certificates \
+        && rm -rf /var/cache/apk/*  \
+        && mkdir -p /usr/local/geoipupdate \
+        && mkdir -p /etc/geoipupdate
+
+COPY --from=build /tmp/build/cmd/geoipupdate/geoipupdate /usr/bin/
+WORKDIR /usr/local/geoipupdate
+
+ADD entry_point.sh /
+CMD [ "/entry_point.sh"]
