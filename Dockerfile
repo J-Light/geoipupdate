@@ -1,9 +1,10 @@
 FROM golang:alpine as build
 
-ENV GEOIPUPDATE_VERSION 4.1.5
-
 RUN apk add --update curl git
-RUN git clone  --branch v${GEOIPUPDATE_VERSION} --depth 1 https://github.com/maxmind/geoipupdate.git /tmp/build
+RUN GEOIPUPDATE_VERSION=$(curl --silent "https://api.github.com/repos/maxmind/geoipupdate/releases/latest" \
+    | grep '"tag_name":' \
+    | sed -E 's/.*"([^"]+)".*/\1/') \
+    && git clone  --branch ${GEOIPUPDATE_VERSION} --depth 1 https://github.com/maxmind/geoipupdate.git /tmp/build
 
 WORKDIR /tmp/build/cmd/geoipupdate
 RUN go build
